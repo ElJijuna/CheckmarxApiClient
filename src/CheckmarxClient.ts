@@ -6,6 +6,7 @@ import type { CheckmarxScan, ScansParams } from './domain/Scan';
 import type { CheckmarxScanSummary, ScanSummaryParams } from './domain/ScanSummary';
 import type { CheckmarxReportRequest, CheckmarxReportResponse } from './domain/Report';
 import type { CheckmarxProjectsOverviewResponse, ProjectsOverviewParams } from './domain/ProjectsOverview';
+import type { CheckmarxAuthResponse } from './domain/Auth';
 
 /**
  * Payload emitted on every HTTP request made by {@link CheckmarxClient}.
@@ -68,6 +69,7 @@ export interface CheckmarxClientOptions {
 export class CheckmarxClient {
   private readonly security: Security;
   private readonly apiPath: string;
+  private readonly refreshToken: string;
   private readonly listeners: Map<keyof CheckmarxClientEvents, CheckmarxClientEvents[keyof CheckmarxClientEvents][]> = new Map();
 
   /**
@@ -77,6 +79,7 @@ export class CheckmarxClient {
   constructor({ apiUrl, apiPath, token }: CheckmarxClientOptions) {
     this.security = new Security(apiUrl, token);
     this.apiPath = apiPath.replace(/^\/|\/$/g, '');
+    this.refreshToken = token;
   }
 
   /**
@@ -148,6 +151,29 @@ export class CheckmarxClient {
         method: 'POST',
         headers: this.security.getHeaders(),
         body: JSON.stringify(body),
+      });
+      statusCode = response.status;
+      if (!response.ok) {
+        throw new CheckmarxApiError(response.status, response.statusText);
+      }
+      const data = await response.json() as T;
+      this.emit('request', { url, method: 'POST', startedAt, finishedAt: new Date(), durationMs: Date.now() - startedAt.getTime(), statusCode });
+      return data;
+    } catch (err) {
+      const finishedAt = new Date();
+      this.emit('request', { url, method: 'POST', startedAt, finishedAt, durationMs: finishedAt.getTime() - startedAt.getTime(), statusCode, error: err instanceof Error ? err : new Error(String(err)) });
+      throw err;
+    }
+  }
+
+  private async requestFormPost<T>(url: string, body: URLSearchParams): Promise<T> {
+    const startedAt = new Date();
+    let statusCode: number | undefined;
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body,
       });
       statusCode = response.status;
       if (!response.ok) {
@@ -279,6 +305,38 @@ export class CheckmarxClient {
    */
   async downloadReport(reportId: string): Promise<ArrayBuffer> {
     return this.requestBuffer(`/reports/${reportId}`);
+  }
+
+  /**
+   * Authenticates against the Checkmarx identity endpoint using the refresh token
+   * provided at construction time, and updates the client's Authorization header
+   * with the returned access token for all subsequent requests.
+   *
+   * `POST <authApiPath>`
+   *
+   * @param authApiPath - Path to the auth endpoint, relative to `apiUrl`.
+   *   Overrides the default `apiPath` since the auth endpoint lives outside the main API path.
+   *   Example: `'auth/realms/CxOne/protocol/openid-connect/token'`
+   * @returns The auth response containing `token_type` and `access_token`
+   *
+   * @example
+   * ```typescript
+   * await cxClient.authenticate('auth/realms/CxOne/protocol/openid-connect/token');
+   * // All subsequent calls now use the new access token automatically
+   * const projects = await cxClient.projects();
+   * ```
+   */
+  async authenticate(authApiPath: string): Promise<CheckmarxAuthResponse> {
+    const path = authApiPath.replace(/^\/|\/$/g, '');
+    const url = `${this.security.getApiUrl()}/${path}`;
+    const body = new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: 'ast-app',
+      refresh_token: this.refreshToken,
+    });
+    const result = await this.requestFormPost<CheckmarxAuthResponse>(url, body);
+    this.security.updateToken(result.token_type, result.access_token);
+    return result;
   }
 
   /**

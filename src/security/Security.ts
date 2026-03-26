@@ -14,14 +14,14 @@
  */
 export class Security {
   private readonly apiUrl: string;
-  private readonly authorizationHeader: string;
+  private authorizationHeader: string;
 
   /**
    * Creates a new Security instance with Bearer Token Authentication credentials.
    *
    * @param apiUrl - The base URL of the Checkmarx instance (e.g., `https://checkmarx.example.com`).
    *   Must be a valid URL; throws if it cannot be parsed.
-   * @param token - The bearer token to authenticate with
+   * @param token - The bearer token or refresh token to authenticate with
    *
    * @throws {TypeError} If `apiUrl` is not a valid URL
    */
@@ -45,7 +45,7 @@ export class Security {
   /**
    * Returns the value of the `Authorization` header for Bearer Authentication.
    *
-   * @returns The Authorization header value in the format `Bearer <token>`
+   * @returns The Authorization header value in the format `Bearer <access_token>`
    */
   getAuthorizationHeader(): string {
     return this.authorizationHeader;
@@ -62,5 +62,16 @@ export class Security {
       'Content-Type': 'application/json',
       Accept: 'application/json',
     };
+  }
+
+  /**
+   * Updates the Authorization header with a new access token obtained from the auth endpoint.
+   * Called automatically by {@link CheckmarxClient.authenticate} after a successful token exchange.
+   *
+   * @param tokenType - The token type returned by the auth endpoint (e.g., `'Bearer'`)
+   * @param accessToken - The access token returned by the auth endpoint
+   */
+  updateToken(tokenType: string, accessToken: string): void {
+    this.authorizationHeader = `${tokenType} ${accessToken}`;
   }
 }

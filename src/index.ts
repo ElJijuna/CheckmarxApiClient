@@ -1,4 +1,5 @@
 export { CheckmarxClient } from './CheckmarxClient';
+export type { CheckmarxAuthResponse } from './domain/Auth';
 export { CheckmarxApiError } from './errors/CheckmarxApiError';
 export type { CheckmarxClientOptions, RequestEvent, CheckmarxClientEvents } from './CheckmarxClient';
 export { Security } from './security/Security';

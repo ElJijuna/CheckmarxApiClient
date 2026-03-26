@@ -608,6 +608,101 @@ describe('CheckmarxClient', () => {
     });
   });
 
+  describe('authenticate()', () => {
+    const AUTH_PATH = 'auth/realms/CxOne/protocol/openid-connect/token';
+    const AUTH_URL = `${API_URL}/${AUTH_PATH}`;
+    const mockAuthResponse = { token_type: 'Bearer', access_token: 'new-access-token' };
+
+    it('calls POST to the overridden auth URL', async () => {
+      mockOk(mockAuthResponse);
+      await client.authenticate(AUTH_PATH);
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toBe(AUTH_URL);
+      expect((init as RequestInit).method).toBe('POST');
+    });
+
+    it('sends Content-Type application/x-www-form-urlencoded', async () => {
+      mockOk(mockAuthResponse);
+      await client.authenticate(AUTH_PATH);
+      const [, init] = fetchMock.mock.calls[0];
+      expect((init as RequestInit).headers).toEqual(
+        expect.objectContaining({ 'Content-Type': 'application/x-www-form-urlencoded' }),
+      );
+    });
+
+    it('does not send an Authorization header in the auth request', async () => {
+      mockOk(mockAuthResponse);
+      await client.authenticate(AUTH_PATH);
+      const [, init] = fetchMock.mock.calls[0];
+      expect((init as RequestInit).headers).not.toHaveProperty('Authorization');
+    });
+
+    it('sends grant_type, client_id and refresh_token in the body', async () => {
+      mockOk(mockAuthResponse);
+      await client.authenticate(AUTH_PATH);
+      const [, init] = fetchMock.mock.calls[0];
+      const body = init?.body as URLSearchParams;
+      expect(body.get('grant_type')).toBe('refresh_token');
+      expect(body.get('client_id')).toBe('ast-app');
+      expect(body.get('refresh_token')).toBe(TOKEN);
+    });
+
+    it('returns token_type and access_token', async () => {
+      mockOk(mockAuthResponse);
+      const result = await client.authenticate(AUTH_PATH);
+      expect(result).toEqual(mockAuthResponse);
+    });
+
+    it('updates the Authorization header for subsequent requests', async () => {
+      mockOk(mockAuthResponse);
+      await client.authenticate(AUTH_PATH);
+
+      const projectsResponse = { projects: [], filteredTotalCount: 0, totalCount: 0 };
+      mockOk(projectsResponse);
+      await client.projects();
+
+      const [, init] = fetchMock.mock.calls[1];
+      expect(((init as RequestInit).headers as Record<string, string>)['Authorization']).toBe(
+        'Bearer new-access-token',
+      );
+    });
+
+    it('strips leading and trailing slashes from authApiPath', async () => {
+      mockOk(mockAuthResponse);
+      await client.authenticate(`/${AUTH_PATH}/`);
+      const [url] = fetchMock.mock.calls[0];
+      expect(url).toBe(AUTH_URL);
+    });
+
+    it('emits a request event with method POST', async () => {
+      mockOk(mockAuthResponse);
+      const events: { method: string }[] = [];
+      client.on('request', (e) => events.push(e));
+      await client.authenticate(AUTH_PATH);
+      expect(events[0].method).toBe('POST');
+    });
+
+    it('emits a request event with the auth URL', async () => {
+      mockOk(mockAuthResponse);
+      const events: { url: string }[] = [];
+      client.on('request', (e) => events.push(e));
+      await client.authenticate(AUTH_PATH);
+      expect(events[0].url).toBe(AUTH_URL);
+    });
+
+    it('throws CheckmarxApiError on a non-OK response', async () => {
+      mockError(401, 'Unauthorized');
+      await expect(client.authenticate(AUTH_PATH)).rejects.toThrow(
+        'Checkmarx API error: 401 Unauthorized',
+      );
+    });
+
+    it('throws an instance of CheckmarxApiError on a non-OK response', async () => {
+      mockError(403, 'Forbidden');
+      await expect(client.authenticate(AUTH_PATH)).rejects.toBeInstanceOf(CheckmarxApiError);
+    });
+  });
+
   describe('error handling', () => {
     it('throws CheckmarxApiError with status and statusText', async () => {
       mockError(404, 'Not Found');
