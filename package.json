@@ -12,7 +12,9 @@
       "require": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "publishConfig": {
     "access": "public"
   },
@@ -22,7 +24,13 @@
     "test": "jest",
     "test:coverage": "jest --coverage"
   },
-  "keywords": ["checkmarx", "checkmarx-sast", "api-client", "rest", "security"],
+  "keywords": [
+    "checkmarx",
+    "checkmarx-sast",
+    "api-client",
+    "rest",
+    "security"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
