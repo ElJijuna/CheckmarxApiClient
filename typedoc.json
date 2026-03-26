@@ -1,0 +1,13 @@
+{
+  "entryPoints": ["src/index.ts"],
+  "out": "docs",
+  "name": "Checkmarx API Client",
+  "readme": "none",
+  "excludeInternal": true,
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "navigationLinks": {
+    "GitHub": "https://github.com/ElJijuna/CheckmarxApiClient",
+    "npm": "https://www.npmjs.com/package/checkmarx-api-client"
+  }
+}

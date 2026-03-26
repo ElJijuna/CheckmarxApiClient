@@ -1,0 +1,43 @@
+{
+  "name": "checkmarx-api-client",
+  "version": "1.0.0",
+  "description": "TypeScript client for Checkmarx On-Premise REST API",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup",
+    "docs": "typedoc",
+    "test": "jest",
+    "test:coverage": "jest --coverage"
+  },
+  "keywords": ["checkmarx", "checkmarx-sast", "api-client", "rest", "security"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ElJijuna/CheckmarxApiClient.git"
+  },
+  "devDependencies": {
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
+    "@types/jest": "^29.5.14",
+    "jest": "^29.7.0",
+    "semantic-release": "^24.2.3",
+    "ts-jest": "^29.3.0",
+    "ts-node": "^10.9.2",
+    "tsup": "^8.4.0",
+    "typedoc": "^0.27.9",
+    "typescript": "^5.8.3"
+  }
+}
