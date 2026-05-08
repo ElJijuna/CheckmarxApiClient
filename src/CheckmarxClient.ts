@@ -34,6 +34,15 @@ export interface CheckmarxClientEvents {
 }
 
 /**
+ * Dispatcher compatible with Node.js `fetch`, such as an Undici `ProxyAgent`.
+ */
+export type FetchDispatcher = object;
+
+type FetchRequestInit = RequestInit & {
+  dispatcher?: FetchDispatcher;
+};
+
+/**
  * Constructor options for {@link CheckmarxClient}.
  */
 export interface CheckmarxClientOptions {
@@ -43,6 +52,8 @@ export interface CheckmarxClientOptions {
   apiPath: string;
   /** The bearer token to authenticate with */
   token: string;
+  /** Optional Node.js fetch dispatcher, such as `new ProxyAgent(...)` */
+  dispatcher?: FetchDispatcher;
 }
 
 /**
@@ -70,16 +81,22 @@ export class CheckmarxClient {
   private readonly security: Security;
   private readonly apiPath: string;
   private readonly refreshToken: string;
+  private readonly dispatcher?: FetchDispatcher;
   private readonly listeners: Map<keyof CheckmarxClientEvents, CheckmarxClientEvents[keyof CheckmarxClientEvents][]> = new Map();
 
   /**
    * @param options - Connection and authentication options
    * @throws {TypeError} If `apiUrl` is not a valid URL
+   * @throws {Error} If `dispatcher` is provided without `NODE_USE_ENV_PROXY=1`
    */
-  constructor({ apiUrl, apiPath, token }: CheckmarxClientOptions) {
+  constructor({ apiUrl, apiPath, token, dispatcher }: CheckmarxClientOptions) {
+    if (dispatcher && getNodeUseEnvProxy() !== '1') {
+      throw new Error('NODE_USE_ENV_PROXY must be set to "1" when dispatcher is configured.');
+    }
     this.security = new Security(apiUrl, token);
     this.apiPath = apiPath.replace(/^\/|\/$/g, '');
     this.refreshToken = token;
+    this.dispatcher = dispatcher;
   }
 
   /**
@@ -110,6 +127,13 @@ export class CheckmarxClient {
     }
   }
 
+  private buildFetchOptions(init: RequestInit): FetchRequestInit {
+    if (!this.dispatcher) {
+      return init;
+    }
+    return { ...init, dispatcher: this.dispatcher };
+  }
+
   /**
    * Performs an authenticated GET request to the Checkmarx REST API.
    *
@@ -127,7 +151,10 @@ export class CheckmarxClient {
     const startedAt = new Date();
     let statusCode: number | undefined;
     try {
-      const response = await fetch(url, { headers: this.security.getHeaders() });
+      const response = await fetch(
+        url,
+        this.buildFetchOptions({ headers: this.security.getHeaders() }),
+      );
       statusCode = response.status;
       if (!response.ok) {
         throw new CheckmarxApiError(response.status, response.statusText);
@@ -147,11 +174,11 @@ export class CheckmarxClient {
     const startedAt = new Date();
     let statusCode: number | undefined;
     try {
-      const response = await fetch(url, {
+      const response = await fetch(url, this.buildFetchOptions({
         method: 'POST',
         headers: this.security.getHeaders(),
         body: JSON.stringify(body),
-      });
+      }));
       statusCode = response.status;
       if (!response.ok) {
         throw new CheckmarxApiError(response.status, response.statusText);
@@ -170,11 +197,11 @@ export class CheckmarxClient {
     const startedAt = new Date();
     let statusCode: number | undefined;
     try {
-      const response = await fetch(url, {
+      const response = await fetch(url, this.buildFetchOptions({
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body,
-      });
+      }));
       statusCode = response.status;
       if (!response.ok) {
         throw new CheckmarxApiError(response.status, response.statusText);
@@ -198,7 +225,10 @@ export class CheckmarxClient {
     const startedAt = new Date();
     let statusCode: number | undefined;
     try {
-      const response = await fetch(url, { headers: this.security.getHeaders() });
+      const response = await fetch(
+        url,
+        this.buildFetchOptions({ headers: this.security.getHeaders() }),
+      );
       statusCode = response.status;
       if (!response.ok) {
         throw new CheckmarxApiError(response.status, response.statusText);
@@ -365,4 +395,9 @@ function buildUrl(base: string, params?: Record<string, string | number | boolea
   if (entries.length === 0) return base;
   const search = new URLSearchParams(entries.map(([k, v]) => [k, String(v)]));
   return `${base}?${search.toString()}`;
+}
+
+function getNodeUseEnvProxy(): string | undefined {
+  return (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env
+    ?.NODE_USE_ENV_PROXY;
 }

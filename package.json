@@ -12,6 +12,9 @@
       "require": "./dist/index.js"
     }
   },
+  "engines": {
+    "node": ">=22.21.0"
+  },
   "files": [
     "dist"
   ],

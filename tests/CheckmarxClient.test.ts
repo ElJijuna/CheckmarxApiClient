@@ -11,6 +11,7 @@ const API_URL = 'https://checkmarx.example.com';
 const API_PATH = 'api';
 const BASE = `${API_URL}/${API_PATH}`;
 const TOKEN = 'my-bearer-token';
+const ORIGINAL_NODE_USE_ENV_PROXY = process.env.NODE_USE_ENV_PROXY;
 
 const mockProject: CheckmarxProject = {
   id: 'project-uuid-1',
@@ -90,6 +91,11 @@ describe('CheckmarxClient', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+    if (ORIGINAL_NODE_USE_ENV_PROXY === undefined) {
+      delete process.env.NODE_USE_ENV_PROXY;
+    } else {
+      process.env.NODE_USE_ENV_PROXY = ORIGINAL_NODE_USE_ENV_PROXY;
+    }
   });
 
   function mockOk(data: unknown): void {
@@ -137,6 +143,76 @@ describe('CheckmarxClient', () => {
       expect(
         () => new CheckmarxClient({ apiUrl: API_URL, apiPath: API_PATH, token: TOKEN }),
       ).not.toThrow();
+    });
+
+    it('throws when dispatcher is configured without NODE_USE_ENV_PROXY=1', () => {
+      delete process.env.NODE_USE_ENV_PROXY;
+      expect(
+        () => new CheckmarxClient({
+          apiUrl: API_URL,
+          apiPath: API_PATH,
+          token: TOKEN,
+          dispatcher: {},
+        }),
+      ).toThrow('NODE_USE_ENV_PROXY must be set to "1" when dispatcher is configured.');
+    });
+
+    it('accepts dispatcher when NODE_USE_ENV_PROXY is 1', () => {
+      process.env.NODE_USE_ENV_PROXY = '1';
+      expect(
+        () => new CheckmarxClient({
+          apiUrl: API_URL,
+          apiPath: API_PATH,
+          token: TOKEN,
+          dispatcher: {},
+        }),
+      ).not.toThrow();
+    });
+  });
+
+  describe('dispatcher', () => {
+    const dispatcher = {};
+
+    function createClientWithDispatcher(): CheckmarxClient {
+      process.env.NODE_USE_ENV_PROXY = '1';
+      return new CheckmarxClient({
+        apiUrl: API_URL,
+        apiPath: API_PATH,
+        token: TOKEN,
+        dispatcher,
+      });
+    }
+
+    function getFetchOptions(): RequestInit & { dispatcher?: object } {
+      return fetchMock.mock.calls[0][1] as RequestInit & { dispatcher?: object };
+    }
+
+    it('passes dispatcher to GET requests', async () => {
+      client = createClientWithDispatcher();
+      mockOk({ projects: [], filteredTotalCount: 0, totalCount: 0 });
+      await client.projects();
+      expect(getFetchOptions().dispatcher).toBe(dispatcher);
+    });
+
+    it('passes dispatcher to POST JSON requests', async () => {
+      client = createClientWithDispatcher();
+      mockOk(mockReportResponse);
+      await client.createReport({ fileFormat: 'PDF' });
+      expect(getFetchOptions().dispatcher).toBe(dispatcher);
+    });
+
+    it('passes dispatcher to auth form POST requests', async () => {
+      client = createClientWithDispatcher();
+      mockOk({ token_type: 'Bearer', access_token: 'new-access-token' });
+      await client.authenticate('auth/realms/CxOne/protocol/openid-connect/token');
+      expect(getFetchOptions().dispatcher).toBe(dispatcher);
+    });
+
+    it('passes dispatcher to buffer download requests', async () => {
+      client = createClientWithDispatcher();
+      mockOkBuffer(new ArrayBuffer(8));
+      await client.downloadReport('report-uuid-1');
+      expect(getFetchOptions().dispatcher).toBe(dispatcher);
     });
   });
 

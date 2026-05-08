@@ -15,6 +15,8 @@ Works in **Node.js** and the **browser** (isomorphic). Fully typed, zero runtime
 npm install checkmarx-api-client
 ```
 
+Requires Node.js `>=22.21.0`.
+
 ---
 
 ## Quick start
@@ -28,6 +30,26 @@ const cx = new CheckmarxClient({
   token:   'your-api-token',
 });
 ```
+
+### Proxy dispatcher
+
+In Node.js applications, pass a fetch dispatcher such as an Undici `ProxyAgent` through the client options:
+
+```typescript
+import { ProxyAgent } from 'undici';
+import { CheckmarxClient } from 'checkmarx-api-client';
+
+const dispatcher = new ProxyAgent('http://proxy.company.com:8080');
+
+const cx = new CheckmarxClient({
+  apiUrl:  'https://checkmarx.example.com',
+  apiPath: 'api',
+  token:   'your-api-token',
+  dispatcher,
+});
+```
+
+When `dispatcher` is configured, `NODE_USE_ENV_PROXY` must be set to `1`.
 
 ---
 
