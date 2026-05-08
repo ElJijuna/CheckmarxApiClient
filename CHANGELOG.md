@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/ElJijuna/CheckmarxApiClient/compare/v1.1.0...v1.2.0) (2026-05-08)
+
+
+### Features
+
+* add fetch dispatcher proxy support ([278f14c](https://github.com/ElJijuna/CheckmarxApiClient/commit/278f14c03e1b990f9d2e227a5f9855a4c665314f))
+
 # [1.1.0](https://github.com/ElJijuna/CheckmarxApiClient/compare/v1.0.0...v1.1.0) (2026-03-26)
 
 
